@@ -1,4 +1,5 @@
 import kivy
+from kivy.lang import Builder
 from kivy.config import Config
 from kivy.app import App
 from kivy.core.window import Window
@@ -8,15 +9,17 @@ from kivy.uix.button import Button
 from kivy.uix.textinput import TextInput
 from kivy.uix.label import Label
 from kivy.uix.spinner import Spinner
+from kivy.uix.scrollview import ScrollView
+from kivy.uix.popup import Popup
 import ollama
 
-kivy.require("2.3.0")  # Replace with your current Kivy version
+# set kivy version
+kivy.require("2.3.0")
 
 # get model list from ollama
 model_list = [x["name"] for x in ollama.list()["models"]]
 
-
-class MyKivyApp(App):
+class MirrorMindMainApp(App):
     """
     A simple Kivy application with a main window, text output and input fields, and buttons.
     The main window spawns in the center of the screen at 65% of the screen size.
@@ -66,17 +69,24 @@ class MyKivyApp(App):
         layout.add_widget(dropdown_layout)      
         
 
-        # Text output field
+        # Text output field inside a scroll view
         self.text_output = TextInput(
             text="",
-            size_hint=(1.0, 0.6),
+            size_hint=(1, None),
             font_size=25,
             multiline=True,
             readonly=True,
             foreground_color=[0.9, 0.9, 0.9, 1],
             background_color=[0.2, 0.2, 0.2, 1],
         )
-        layout.add_widget(self.text_output)
+        self.text_output.bind(minimum_height=self.text_output.setter('height'))
+        
+        # Here, setting a large enough initial height for the TextInput to ensure it visually occupies the space
+        self.text_output.height = 500  # Example height, adjust based on your UI's needs
+
+        scroll_view = StyledScrollView()
+        scroll_view.add_widget(self.text_output)
+        layout.add_widget(scroll_view)
 
         # Text input field
         self.text_input = TextInput(
@@ -93,10 +103,10 @@ class MyKivyApp(App):
 
         # Left-aligned buttons
         left_buttons_layout = BoxLayout(size_hint_x=None, width=210, spacing=10)
-        btn_topics = Button(text="topics", size_hint_x=None, width=100)
-        btn_settings = Button(text="settings", size_hint_x=None, width=100)
-        left_buttons_layout.add_widget(btn_topics)
-        left_buttons_layout.add_widget(btn_settings)
+        self.btn_topics = Button(text="topics", size_hint_x=None, width=100)
+        self.btn_settings = Button(text="settings", size_hint_x=None, width=100)
+        left_buttons_layout.add_widget(self.btn_topics)
+        left_buttons_layout.add_widget(self.btn_settings)
 
         # Right-aligned buttons
         right_buttons_layout = BoxLayout(size_hint_x=None, width=210, spacing=10)
@@ -118,6 +128,9 @@ class MyKivyApp(App):
         self.text_input.bind(text=self.on_text)  # type: ignore
         self.text_input.bind(on_keyboard=self.on_key_down)
         self.btn_send.bind(on_press=self.press_send)
+        
+        self.btn_topics.bind(on_press=self.press_topics)
+        self.btn_settings.bind(on_press=self.press_topics)
 
         return layout
     
@@ -138,6 +151,15 @@ class MyKivyApp(App):
             if send_status:
                 self.btn_send.disabled = False
         pass
+
+    def press_settings(self, instance):
+        show_niy_msg()
+        pass
+
+    def press_topics(self, instance):
+        show_niy_msg()
+        pass
+
     
     def process_input(self):
         """
@@ -171,12 +193,48 @@ class MyKivyApp(App):
         
             for chunk in stream:
                 self.text_output.text = self.text_output.text + str(chunk['message']['content'])
+            self.text_output.scroll_y = 0
             return True
         except Exception as err:
             print(f"Unexpected {err=}, {type(err)=}")
         finally:
             return False
 
+# show a message dialog
+def show_message(title="", message=""):
+    box = BoxLayout(orientation='vertical', padding=(10))
+    box.add_widget(Label(text=message))
+    close_btn = Button(text="Close", size_hint=(1, 0.2))
+    
+    popup = Popup(title=title, content=box, size_hint=(None, None), size=(400, 300))
+    close_btn.bind(on_press=popup.dismiss)
+    box.add_widget(close_btn)
+    
+    popup.open()
+
+def show_niy_msg():
+    show_message("nope", "not implemented, yet.")
+
+class StyledScrollView(ScrollView):
+    """
+    Define a customized scroll view.
+
+    Args:
+        ScrollView (_type_): Just the default Kivy ScrollView
+    """
+    def __init__(self, **kwargs):
+        super(StyledScrollView, self).__init__(**kwargs)
+        self.bar_width = 10
+        self.bar_color = [0.8, 0.8, 0.8, 1]
+        self.do_scroll_x=False,  # Disable horizontal scrolling
+        self.do_scroll_y=True,  # Enable vertical scrolling        
+        self.bar_inactive_color: [0.5, 0.5, 0.5, 1]  # Darker red when not scrolling
+        self.scroll_type: ['bars']  # Enable scrollbars and content scrolling
+        self.effect_cls: 'ScrollEffect'  # Use the default scroll effect
+        self.bar_pos_x: 'right'  # Position the vertical scrollbar on the right
+        self.bar_pos_y: 'bottom'  # Position the horizontal scrollbar at the bottom
+
+
 
 if __name__ == "__main__":
-    MyKivyApp().run()
+    MirrorMindMainApp().run()
